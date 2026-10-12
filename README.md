@@ -17,6 +17,9 @@ git clone --branch v0.1.0 https://github.com/datndptit/argus-sidecar.git
 cd argus-sidecar
 sudo install -d -m 0755 /opt/argus/models
 sudo python3 scripts/prepare-model.py /path/to/argus_sentinel_v4 /opt/argus/models/v4
+sudo chown -R 10000:10000 /opt/argus/models/v4
+sudo chmod 0750 /opt/argus/models/v4
+sudo find /opt/argus/models/v4 -maxdepth 1 -type f -exec chmod 0640 {} +
 export ARGUS_MODEL_DIR_HOST=/opt/argus/models/v4
 export ARGUS_SOCKET_VOLUME=ingressi-argus-run
 docker compose build --pull
@@ -37,8 +40,10 @@ first. The Ingressi integration's Caddy image also prepares `/run/argus` for
 non-root use. No TCP port is exposed. One sidecar per Caddy node; do not share
 one socket filesystem across hosts.
 
-Build Caddy with `github.com/datndptit/coraza-mlcheck@v0.1.0` and apply a rule
-set from that repository's `examples/` to Ingressi custom directives. Keep
+For current Ingressi, follow the [manifest-based build and Compose guide](https://github.com/datndptit/coraza-mlcheck/blob/main/docs/ingressi.md).
+It preserves Ingressi's Dockerfile, `go.mod`, `tools.go`, `build.sh` and
+compatibility updater, and retains the ML overlay during L4 port changes.
+Apply a rule set from coraza-mlcheck's `examples/` to existing custom directives. Keep
 CRS enabled for request-body processing. Start in detect mode. Neither
 Ingressi UI/API changes nor a local Go module replacement are required.
 
