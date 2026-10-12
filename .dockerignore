@@ -1,0 +1,7 @@
+.git
+.env*
+model
+**/__pycache__
+.venv
+*.onnx
+*.parquet

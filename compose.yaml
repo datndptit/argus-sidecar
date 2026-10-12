@@ -1,0 +1,25 @@
+services:
+  argus-sidecar:
+    image: ghcr.io/datndptit/argus-sidecar:v0.1.0
+    build: .
+    restart: unless-stopped
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    environment:
+      ARGUS_THRESHOLD: ${ARGUS_THRESHOLD:-fpr0.1%}
+      ARGUS_WORKERS: ${ARGUS_WORKERS:-4}
+      ARGUS_MAX_CONCURRENT_RPCS: ${ARGUS_MAX_CONCURRENT_RPCS:-8}
+    volumes:
+      - ${ARGUS_MODEL_DIR_HOST:?Set ARGUS_MODEL_DIR_HOST to the prepared model directory}:/model:ro
+      - argus-run:/run/argus
+    cpus: 2
+    mem_limit: 512m
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+volumes:
+  argus-run:
+    name: ${ARGUS_SOCKET_VOLUME:-ingressi-argus-run}

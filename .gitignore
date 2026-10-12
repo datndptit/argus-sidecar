@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+model/*
+!model/README.md
+*.onnx
+*.parquet
+argus_sidecar/_proto/argus_pb2*.py

@@ -1,0 +1,29 @@
+name: Test and publish
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build code-only image
+        run: docker build -t argus-sidecar:test .
+      - name: Runtime tests without private model
+        run: docker run --rm --entrypoint python -e PYTHONPATH=/app -v "$PWD/tests:/tests:ro" argus-sidecar:test -m unittest discover -s /tests -p test_runtime.py -v
+      - name: Publish versioned image
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          image="ghcr.io/${GITHUB_REPOSITORY}:${GITHUB_REF_NAME}"
+          docker tag argus-sidecar:test "$image"
+          docker push "$image"
