@@ -1,6 +1,6 @@
 services:
   argus-sidecar:
-    image: ghcr.io/datndptit/argus-sidecar:v0.1.0
+    image: ghcr.io/datndptit/argus-sidecar:v0.1.1
     build: .
     restart: unless-stopped
     read_only: true
@@ -8,9 +8,17 @@ services:
     cap_drop: ["ALL"]
     tmpfs: ["/tmp:size=16m,mode=1777"]
     environment:
+      # The container mount stays /model; ARGUS_MODEL_DIR_HOST selects the host bundle.
+      ARGUS_MODEL_DIR: /model
+      ARGUS_SOCKET: ${ARGUS_SOCKET:-/run/argus/argus.sock}
+      ARGUS_SOCKET_MODE: "${ARGUS_SOCKET_MODE:-0o660}"
+      ARGUS_VERIFY_MANIFEST: ${ARGUS_VERIFY_MANIFEST:-1}
       ARGUS_THRESHOLD: ${ARGUS_THRESHOLD:-fpr0.1%}
       ARGUS_WORKERS: ${ARGUS_WORKERS:-4}
       ARGUS_MAX_CONCURRENT_RPCS: ${ARGUS_MAX_CONCURRENT_RPCS:-8}
+      ARGUS_MIN_REMAINING_MS: ${ARGUS_MIN_REMAINING_MS:-5}
+      ORT_INTRA_THREADS: ${ORT_INTRA_THREADS:-1}
+      LOG_LEVEL: ${ARGUS_LOG_LEVEL:-INFO}
     volumes:
       - ${ARGUS_MODEL_DIR_HOST:?Set ARGUS_MODEL_DIR_HOST to the prepared model directory}:/model:ro
       - argus-run:/run/argus

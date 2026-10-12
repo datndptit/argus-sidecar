@@ -14,6 +14,8 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+      - name: Compose configuration survives a fresh shell and passes overrides
+        run: python3 -m unittest discover -s tests -p test_compose.py -v
       - name: Build code-only image
         run: docker build -t argus-sidecar:test .
       - name: Runtime tests without private model

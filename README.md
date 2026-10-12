@@ -13,21 +13,35 @@ weights, tokenizer or training data**. Containers are Linux amd64; other
 architectures need their own build and validation.
 
 ```sh
-git clone --branch v0.1.0 https://github.com/datndptit/argus-sidecar.git
+git clone --branch v0.1.1 https://github.com/datndptit/argus-sidecar.git
 cd argus-sidecar
 sudo install -d -m 0755 /opt/argus/models
 sudo python3 scripts/prepare-model.py /path/to/argus_sentinel_v4 /opt/argus/models/v4
 sudo chown -R 10000:10000 /opt/argus/models/v4
 sudo chmod 0750 /opt/argus/models/v4
 sudo find /opt/argus/models/v4 -maxdepth 1 -type f -exec chmod 0640 {} +
-export ARGUS_MODEL_DIR_HOST=/opt/argus/models/v4
-export ARGUS_SOCKET_VOLUME=ingressi-argus-run
+cp .env.example .env
+# Edit .env to match your model directory and Ingressi socket settings.
+docker compose config --quiet
 docker compose build --pull
 docker compose up -d
 docker compose exec argus-sidecar python -m argus_sidecar.healthcheck
 ```
 
-Alternatively pull `ghcr.io/datndptit/argus-sidecar:v0.1.0` after the release
+Keep `.env` in the sidecar checkout: Compose reads it again after a new SSH
+login, without shell exports. It is gitignored. Both `ARGUS_SOCKET_VOLUME`
+and `ARGUS_SOCKET` must match Ingressi's `.env`; custom socket paths must
+remain under the shared `/run/argus` mount. The model path in `.env` is a
+**host path**; the container always reads `/model`.
+
+For an existing v0.1.0 checkout, fetch tags and switch to v0.1.1 before using
+the updated Compose file. Keep an existing `.env`; if it is missing, create
+it from `.env.example` and restore the model path/socket values previously
+exported in your shell. Then run `docker compose up -d --build` and repeat
+the healthcheck. Recreate Caddy with its ML overlay if its socket changes.
+The model and gRPC protocol are unchanged in this configuration-only fix.
+
+Alternatively pull `ghcr.io/datndptit/argus-sidecar:v0.1.1` after the release
 workflow publishes it. The manifest verifies all five supplied artifacts,
 including preprocessing/inference Python modules. Do not mount untrusted
 code; the manifest is an integrity check, not a publisher signature.
@@ -58,7 +72,9 @@ prevents two sidecars from unlinking each other's live socket.
 
 | Environment | Default | Meaning |
 |---|---|---|
-| ARGUS_MODEL_DIR | /model | Read-only model bundle and MANIFEST.sha256 |
+| ARGUS_MODEL_DIR_HOST | required | Host bundle path in .env; mounted read-only at /model |
+| ARGUS_SOCKET_VOLUME | ingressi-argus-run | Shared Docker volume name; match Ingressi |
+| ARGUS_MODEL_DIR | /model | Fixed container mount in Compose |
 | ARGUS_THRESHOLD | fpr0.1% | Preset from model config, or finite float 0..1 |
 | ARGUS_VERIFY_MANIFEST | 1 | Fail startup on missing/mismatched artifacts |
 | ARGUS_SOCKET | /run/argus/argus.sock | Absolute Unix socket path |
@@ -67,6 +83,7 @@ prevents two sidecars from unlinking each other's live socket.
 | ARGUS_MAX_CONCURRENT_RPCS | 8 | Bounded active/queued RPC count |
 | ARGUS_MIN_REMAINING_MS | 5 | Reject requests with almost-expired deadlines |
 | ORT_INTRA_THREADS | 1 | ONNX threads per session |
+| ARGUS_LOG_LEVEL | INFO | Forwarded to the runtime as LOG_LEVEL |
 
 Server overload returns RESOURCE_EXHAUSTED; inference errors return INTERNAL.
 The action fails open while CRS continues enforcing its rules. A deadline
@@ -86,13 +103,14 @@ docker build -t argus-sidecar:test .
 docker run --rm --entrypoint python -e PYTHONPATH=/app \
   -v "$PWD/tests:/tests:ro" argus-sidecar:test \
   -m unittest discover -s /tests -p test_runtime.py -v
-docker run --rm --entrypoint python -e PYTHONPATH=/app \
-  -v "$PWD/tests:/tests:ro" -v "$ARGUS_MODEL_DIR_HOST:/model:ro" \
-  argus-sidecar:test /tests/smoke_test.py
+# Uses the prepared model path from .env.
+docker compose run --rm --no-deps --entrypoint python -e PYTHONPATH=/app \
+  -v "$PWD/tests:/tests:ro" argus-sidecar /tests/smoke_test.py
 ```
 
-Public CI runs runtime tests without model artifacts. Local model smoke
-checks clean/SQLi/JSON-body/traversal samples. `tests/e2e_client.py` exercises
+Public CI renders Compose using a persisted `.env` and a clean shell, checks
+nondefault runtime overrides, and runs runtime tests without model artifacts.
+Local model smoke checks clean/SQLi/JSON-body/traversal samples. `tests/e2e_client.py` exercises
 the running UDS service. Use `requirements.lock` for the tested dependency
 set; regenerate and rerun model parity tests before dependency upgrades.
 

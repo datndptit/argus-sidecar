@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.6
-# Standalone build: docker build -t argus-sidecar:v0.1.0 .
+# Standalone build: docker build -t argus-sidecar:v0.1.1 .
 # Model artifacts are mounted read-only at runtime; never published in this image.
 FROM python:3.12-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258 AS protogen
 WORKDIR /build
