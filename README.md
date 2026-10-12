@@ -32,13 +32,15 @@ workflow publishes it. The manifest verifies all five supplied artifacts,
 including preprocessing/inference Python modules. Do not mount untrusted
 code; the manifest is an integrity check, not a publisher signature.
 
-Mount the **same named volume** at `/run/argus` in Caddy. Both images default
-to UID/GID 10000:10000. For custom Caddy IDs, rebuild with matching
-`--build-arg PUID=... --build-arg PGID=...`. Socket mode is 0660. For an
-existing volume, verify ownership once; for a fresh volume start the sidecar
-first. The Ingressi integration's Caddy image also prepares `/run/argus` for
-non-root use. No TCP port is exposed. One sidecar per Caddy node; do not share
-one socket filesystem across hosts.
+Mount the **same named volume** at `/run/argus` in Caddy — the Ingressi ML
+overlay references it as an external volume with the same name
+(`ARGUS_SOCKET_VOLUME`), so the two stacks share the socket without sharing
+a Compose project. Both images default to UID/GID 10000:10000. For custom
+Caddy IDs, rebuild with matching `--build-arg PUID=... --build-arg PGID=...`.
+Socket mode is 0660. For an existing volume, verify ownership once; for a
+fresh volume start the sidecar first. The Ingressi integration's Caddy image
+also prepares `/run/argus` for non-root use. No TCP port is exposed. One
+sidecar per Caddy node; do not share one socket filesystem across hosts.
 
 For current Ingressi, follow the [manifest-based build and Compose guide](https://github.com/datndptit/coraza-mlcheck/blob/main/docs/ingressi.md).
 It preserves Ingressi's Dockerfile, `go.mod`, `tools.go`, `build.sh` and
@@ -47,9 +49,10 @@ Apply a rule set from coraza-mlcheck's `examples/` to existing custom directives
 CRS enabled for request-body processing. Start in detect mode. Neither
 Ingressi UI/API changes nor a local Go module replacement are required.
 
-If using the Ingressi production overlay, it manages the sidecar itself:
-use that stack instead of also starting this standalone Compose service.
-A lock prevents two sidecars from unlinking each other's live socket.
+The Ingressi ML overlay does **not** run a sidecar: this stack (or an
+equivalent service manager) is the only sidecar deployment, and the overlay
+consumes its socket volume. Run exactly one sidecar per Caddy node — a lock
+prevents two sidecars from unlinking each other's live socket.
 
 ## Configuration
 
